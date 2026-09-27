@@ -1,0 +1,16 @@
+mcp_servers:
+  conductor_status:
+    command: uv
+    args:
+      - run
+      - --no-project
+      - --locked
+      - --script
+      - ${HERMES_HOME}/skills/conductor-status/scripts/server.py
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      CONDUCTOR_STATUS_HOME: ${HERMES_HOME}
+    connect_timeout: 120
+    timeout: 120
+    sampling:
+      enabled: false

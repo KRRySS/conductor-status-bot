@@ -1,0 +1,10 @@
+name: conductor-status-bot
+version: 0.1.0
+description: Read-only local Conductor status over stdio MCP.
+hermes_requires: ">=0.21.3"
+license: MIT
+distribution_owned:
+  - SOUL.md
+  - config.yaml
+  - skills/conductor-status
+  - distribution.yaml
