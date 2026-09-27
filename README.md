@@ -215,9 +215,13 @@ Wire tests cover default event suppression, opted-in redaction, no-argument sche
 rejected SQL/path/command arguments, unknown tools, missing-database errors, DB/WAL/
 SHM immutability and temporary-copy cleanup. Unit tests cover retries, WAL-only data,
 filters/counts/labels, changed sources, journals, capture bounds and malformed schema.
-The GitHub shorthand check inspects Hermes's normalized clone command with the
-network call mocked; **remote publication/install itself must be verified after the
-repository is published**. No credentials are needed for these tests.
+The automated GitHub shorthand test inspects Hermes's normalized clone command
+with the network call mocked. Release 0.1.0 was also verified after publication:
+a fresh isolated HOME installed from `github.com/KRRySS/conductor-status-bot`,
+updated from the public repository while preserving local settings, and passed
+real MCP initialize/list/call against a synthetic database. No GitHub credentials,
+provider credentials or real Conductor data were used for that installation test.
+No credentials are needed for the test suite.
 
 ## References
 
