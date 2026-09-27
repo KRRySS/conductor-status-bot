@@ -24,7 +24,7 @@ from privacy import sanitize
 from status import snapshot
 
 TOOL_NAME = 'conductor_status'
-server = Server('conductor-status', version='0.2.0')
+server = Server('conductor-status', version='0.3.0')
 
 
 def profile_home():

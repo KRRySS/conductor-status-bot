@@ -1,5 +1,5 @@
 name: conductor-status-bot
-version: 0.2.0
+version: 0.3.0
 description: Read-only local Conductor status over stdio MCP.
 hermes_requires: ">=0.21.3"
 license: MIT

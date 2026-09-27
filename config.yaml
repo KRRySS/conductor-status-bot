@@ -1,27 +1,21 @@
 # Native MCP launch config for the bundled read-only Conductor status server.
 #
-# PORTABILITY NOTE — read before editing:
-# Hermes interpolates ${VAR} in this file from the process/secret environment, NOT from the
-# profile that owns this config. In a multi-profile (multiplexed) Hermes, ${HERMES_HOME} can
-# resolve to the LAUNCH profile's home (often ~/.hermes), so a path built from it points at a
-# directory where this skill is not installed and the server fails with "No such file".
-# ${userHome} is a context variable Hermes resolves to the real user home, and the profile
-# directory name is fixed by the distribution manifest (`name:`), so the launch path below is
-# stable across restarts, multiplexing and re-installs.
+# This file is PRESERVED by `hermes profile update` (it holds your model/provider settings), so
+# it must contain nothing that a release would need to change. It only points at launch.py,
+# a stdlib-only launcher that is distribution-owned and overwritten on every update; launch.py
+# decides where the profile is, which lockfile applies and how to start the server.
 #
-# If you installed with `--name <other>` or moved the profile, update the single path below.
-# The server itself locates its profile from its own file location; no env var is required.
+# ${userHome} is a context variable Hermes resolves to the real user home. Do NOT use
+# ${HERMES_HOME}: Hermes interpolates it from the launch profile's environment (under the desktop
+# app / multiplexing that is ~/.hermes, not this profile). If you installed with --name <other>,
+# the installer cannot rewrite this file for you — run the doctor, it prints the exact commands:
+#   python3 <profile>/skills/conductor-status/scripts/doctor.py
 # First place to look when the tool is missing: <profile>/logs/mcp-stderr.log
 mcp_servers:
   conductor_status:
-    command: uv
+    command: python3
     args:
-      - run
-      - --no-project
-      - --script
-      - ${userHome}/.hermes/profiles/conductor-status-bot/skills/conductor-status/scripts/server.py
-    env:
-      PYTHONDONTWRITEBYTECODE: "1"
+      - ${userHome}/.hermes/profiles/conductor-status-bot/skills/conductor-status/scripts/launch.py
     connect_timeout: 120
     timeout: 120
     sampling:
