@@ -1,15 +1,27 @@
+# Native MCP launch config for the bundled read-only Conductor status server.
+#
+# PORTABILITY NOTE — read before editing:
+# Hermes interpolates ${VAR} in this file from the process/secret environment, NOT from the
+# profile that owns this config. In a multi-profile (multiplexed) Hermes, ${HERMES_HOME} can
+# resolve to the LAUNCH profile's home (often ~/.hermes), so a path built from it points at a
+# directory where this skill is not installed and the server fails with "No such file".
+# ${userHome} is a context variable Hermes resolves to the real user home, and the profile
+# directory name is fixed by the distribution manifest (`name:`), so the launch path below is
+# stable across restarts, multiplexing and re-installs.
+#
+# If you installed with `--name <other>` or moved the profile, update the single path below.
+# The server itself locates its profile from its own file location; no env var is required.
+# First place to look when the tool is missing: <profile>/logs/mcp-stderr.log
 mcp_servers:
   conductor_status:
     command: uv
     args:
       - run
       - --no-project
-      - --locked
       - --script
-      - ${HERMES_HOME}/skills/conductor-status/scripts/server.py
+      - ${userHome}/.hermes/profiles/conductor-status-bot/skills/conductor-status/scripts/server.py
     env:
       PYTHONDONTWRITEBYTECODE: "1"
-      CONDUCTOR_STATUS_HOME: ${HERMES_HOME}
     connect_timeout: 120
     timeout: 120
     sampling:

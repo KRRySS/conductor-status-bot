@@ -29,14 +29,16 @@ It never opens a listening port. Hermes normally registers it as
   **0.21.3**, source commit `3dae1f7335371ca4b015cdf5336db41868485153`.
 - `git`, `uv` on the PATH visible to Hermes, and Python **3.11 or newer**.
 - The Python MCP SDK available in Hermes itself (use `hermes setup` if MCP support
-  is missing). The separate server uses **mcp==1.26.0** via uv script metadata.
+  is missing). The separate server uses **mcp==2.2.0** via uv script metadata.
 - Local read permission for the Conductor database and WAL, and writable profile
   scratch/cache directories. Do not run as administrator to bypass permissions.
 
-The server's bundled `server.py.lock` pins transitive packages and artifact hashes;
-`uv run --locked` refuses an inconsistent lockfile. First launch may download Python
-or dependencies; this is package provisioning, not transmission of Conductor data.
-After provisioning, uv can use its cache. An offline machine needs a prepared cache.
+The server's bundled `server.py.lock` pins transitive packages and artifact hashes.
+`uv run --script` honours that adjacent lockfile automatically and refuses an
+inconsistent one, so `--locked` is not passed (it only warns next to `--no-project`).
+First launch may download Python or dependencies; this is package provisioning, not
+transmission of Conductor data. After provisioning, uv can use its cache. An offline
+machine needs a prepared cache.
 
 ## Install
 
@@ -73,14 +75,26 @@ repository's default branch. Do not assume a `#tag` suffix pins a release.
 
 ## Configuration and paths
 
-The active profile root is `$HERMES_HOME`, normally
-`~/.hermes/profiles/conductor-status-bot`. Custom profile names and custom Hermes
-roots work without editing the shipped MCP command. Hermes expands `${HERMES_HOME}`
-in `config.yaml` **before spawning** uv; this is not shell expansion and does not
-rely on the working directory. The server independently derives the profile root
-from its installed file location and checks the explicit `CONDUCTOR_STATUS_HOME`.
-All runtime code and its lockfile live under the bundled skill so the distribution
-installer copies them.
+The active profile root is normally `~/.hermes/profiles/conductor-status-bot`.
+The shipped `config.yaml` launches the server by that path, written as
+`${userHome}/.hermes/profiles/conductor-status-bot/...`. `${userHome}` is a context
+variable Hermes resolves to the real user home before spawning uv.
+
+**Why not `${HERMES_HOME}`:** Hermes interpolates `${VAR}` placeholders in
+`config.yaml` from the process environment, not from the profile that owns the
+file. In a multi-profile (multiplexed) Hermes that is the *launch* profile's home,
+typically `~/.hermes`, where this skill is not installed — the server then fails
+with "can't open file ... No such file or directory". The profile directory name is
+fixed by the manifest, so a `${userHome}`-anchored path is stable across restarts,
+multiplexing and reinstalls.
+
+If you install with `--name <other>` or move the profile, update the single path in
+`mcp_servers.conductor_status.args` with `hermes -p <profile> config set ...`. The
+server itself derives its profile root from its own installed file location and
+needs no environment variable; `CONDUCTOR_STATUS_HOME` is an optional cross-check
+that must equal the profile directory exactly if set — leave it unset. All runtime
+code and its lockfile live under the bundled skill so the distribution installer
+copies them.
 
 | Path, relative to active profile | Purpose |
 | --- | --- |
@@ -177,8 +191,22 @@ Updates refresh the SOUL, bundled skill/scripts/lockfile and manifest. Hermes
 preserves `config.yaml` by default and leaves `local/`, credentials, memories and
 sessions untouched. Restart the running Hermes process after updating so its MCP
 subprocess loads the new code. If a release changes MCP launch configuration,
-review the difference and apply it locally. `--force-config` deliberately replaces
-your Hermes configuration, including local model/provider settings—back up and
+review the difference and apply it locally.
+
+**Upgrading from 0.1.x:** the 0.1.0 `config.yaml` used `${HERMES_HOME}` and set
+`CONDUCTOR_STATUS_HOME`, which breaks under multiplexing (see Configuration). Because
+`config.yaml` is preserved on update, apply the new launch config yourself after
+`hermes profile update`:
+
+```sh
+P=conductor-status-bot   # or your --name
+hermes -p $P config set mcp_servers.conductor_status.args '["run","--no-project","--script","${userHome}/.hermes/profiles/'$P'/skills/conductor-status/scripts/server.py"]'
+hermes -p $P config unset mcp_servers.conductor_status.env.CONDUCTOR_STATUS_HOME
+```
+
+Then restart the profile and check `<profile>/logs/mcp-stderr.log`. Alternatively
+`hermes profile update $P --force-config` replaces the whole `config.yaml` with the
+shipped one — this also discards your local model/provider settings, so back up and
 review before using it. Do not use a forced reinstall as a routine update.
 
 ## Testing

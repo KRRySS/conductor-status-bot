@@ -40,8 +40,8 @@ class InstallTests(unittest.TestCase):
             check = run('from hermes_cli.profiles import _get_profiles_root; print(_get_profiles_root())')
             self.assertEqual(Path(check.strip()), home / '.hermes/profiles')
             cli = 'from hermes_cli.main import main; main()'
-            run(cli, 'profile', 'install', str(payload), '--name', 'portable-status', '-y')
-            profile = home / '.hermes/profiles/portable-status'
+            run(cli, 'profile', 'install', str(payload), '-y')
+            profile = home / '.hermes/profiles/conductor-status-bot'
             self.assertTrue((profile / 'skills/conductor-status/scripts/server.py').is_file())
             self.assertFalse((profile / 'tests').exists())
             self.assertFalse((profile / 'auth.json').exists())
@@ -59,22 +59,33 @@ class InstallTests(unittest.TestCase):
                 # Poison shipped file, then prove update restores it and preserves user data.
                 (profile / 'skills/conductor-status/scripts/privacy.py').write_text('obsolete')
                 manifest = payload / 'distribution.yaml'
-                manifest.write_text(manifest.read_text().replace('version: 0.1.0', 'version: 0.1.1'))
-                run(cli, 'profile', 'update', 'portable-status', '-y')
+                import re as _re
+                current = _re.search(r'^version: (\S+)$', manifest.read_text(), _re.M).group(1)
+                bumped = current + '.post1'
+                manifest.write_text(manifest.read_text().replace(f'version: {current}', f'version: {bumped}'))
+                run(cli, 'profile', 'update', 'conductor-status-bot', '-y')
                 self.assertEqual(config.read_text(), original)
                 self.assertEqual(local.read_text(), json.dumps({'db_path': str(database), 'include_events': True}))
                 self.assertEqual((profile / 'memories/sentinel.txt').read_text(), 'synthetic user-owned sentinel')
-                self.assertIn('0.1.1', (profile / 'distribution.yaml').read_text())
+                self.assertIn(bumped, (profile / 'distribution.yaml').read_text())
                 self.assertNotEqual((profile / 'skills/conductor-status/scripts/privacy.py').read_text(), 'obsolete')
-                # Rename the entire HOME and Hermes root, then use the real native config loader.
+                # Rename the entire HOME and Hermes root, then use the real native config loader
+                # exactly as a multiplexed gateway does: os.environ["HERMES_HOME"] is the LAUNCH
+                # (default) home, the served profile is bound via the context-local override.
+                # In that shape ${HERMES_HOME} would interpolate to the wrong directory, so the
+                # shipped config must not rely on it.
                 moved = base / 'relocated home'
                 home.rename(moved)
-                profile = moved / '.hermes/profiles/portable-status'
-                env.update(HOME=str(moved), HERMES_HOME=str(profile))
-                resolved = run('import json; from tools.mcp_tool_config import _load_mcp_config, _build_safe_env; c=_load_mcp_config()["conductor_status"]; c["env"]=_build_safe_env(c.get("env")); print(json.dumps(c))')
+                profile = moved / '.hermes/profiles/conductor-status-bot'
+                env.update(HOME=str(moved), HERMES_HOME=str(moved / '.hermes'))
+                resolved = run('import json, sys; from hermes_constants import set_hermes_home_override; set_hermes_home_override(sys.argv[1]); '
+                               'from tools.mcp_tool_config import _load_mcp_config, _build_safe_env; c=_load_mcp_config()["conductor_status"]; '
+                               'c["env"]=_build_safe_env(c.get("env")); print(json.dumps(c))', str(profile))
                 cfg = json.loads(resolved.strip().splitlines()[-1])
                 self.assertEqual(cfg['args'][-1], str(profile / 'skills/conductor-status/scripts/server.py'))
-                self.assertEqual(cfg['env']['CONDUCTOR_STATUS_HOME'], str(profile))
+                self.assertNotIn('${', ' '.join(cfg['args']))
+                self.assertNotIn('--locked', cfg['args'])
+                self.assertNotIn('CONDUCTOR_STATUS_HOME', cfg['env'])
                 error, data = asyncio.run(exercise(cfg['command'], cfg['args'], cfg['env'], base))
                 self.assertFalse(error)
                 self.assertEqual(data['session_count'], 1)
